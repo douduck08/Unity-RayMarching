@@ -14,18 +14,26 @@ float df_Box (float3 pos, float3 box) {
          + min(max(d.x, max(d.y, d.z)), 0.0); // remove this line for an only partially signed sdf 
 }
 
-float df_Cylinder (float3 pos, float2 c, float radius) {
+float df_Cylinder_x (float3 pos, float2 c, float radius) {
+    return length(pos.yz - c) - radius;
+}
+
+float df_Cylinder_y (float3 pos, float2 c, float radius) {
     return length(pos.xz - c) - radius;
 }
 
+float df_Cylinder_z (float3 pos, float2 c, float radius) {
+    return length(pos.xy - c) - radius;
+}
+
 // Boolean operation
-float op_Union (float d1, float d2) { min(d1, d2); }
+float op_Union (float d1, float d2) { return min(d1, d2); }
 float op_Subtraction (float d1, float d2) { return max(d1, -d2); }
 float op_Intersection (float d1, float d2) { return max(d1, d2); }
 
-float opSmoothUnion (float d1, float d2, float k) {
+float op_SmoothUnion (float d1, float d2, float k) {
     float h = clamp(0.5 + 0.5 * (d2 - d1) / k, 0.0, 1.0 );
-    return lerp(d1, d2, h) - k * h * (1.0 - h);
+    return lerp(d2, d1, h) - k * h * (1.0 - h);
 }
 
 float op_SmoothSubtraction (float d1, float d2, float k) {
@@ -35,7 +43,7 @@ float op_SmoothSubtraction (float d1, float d2, float k) {
 
 float op_SmoothIntersection (float d1, float d2, float k) {
     float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
-    return lerp(d1, d2, h) + k * h * (1.0 - h);
+    return lerp(d2, d1, h) + k * h * (1.0 - h);
 }
 
 #endif // DISTANCE_FUNCTIONS_INCLUDE

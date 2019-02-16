@@ -2,6 +2,8 @@
 #define RAY_MARCHING_INCLUDE
 
 #include "UnityCG.cginc"
+#include "UnityPBSLighting.cginc"
+#include "AutoLight.cginc"
 #include "DistanceFunctions.cginc"
 
 // Distance Field function. it's also called Distance Map or Distance Transform 
@@ -41,6 +43,10 @@ float3 get_normal (float3 pos) {
 }
 
 // vertex & fragment shader
+float4 _Color;
+float _Metallic;
+float _Smoothness;
+
 struct appdata {
     float4 vertex : POSITION;
 };
@@ -69,7 +75,22 @@ float4 frag_rayMarching (v2f_ray i) : SV_Target {
 
     float3 pos = i.rayOrigin + i.rayDirection * output.x;
     float3 normal = get_normal(pos);
-    return float4 (normal * 0.5 + 0.5, 1);
+
+    float3 specColor;
+    float oneMinusReflectivity;
+    float3 albedo = DiffuseAndSpecularFromMetallic(_Color, _Metallic, /*out*/specColor, /*out*/oneMinusReflectivity);
+
+    UnityLight light;
+    UNITY_INITIALIZE_OUTPUT(UnityLight, light);
+    light.dir = mul((float3x3)unity_WorldToObject, -_WorldSpaceLightPos0.xyz);
+    light.color = _LightColor0.rgb;
+    light.ndotl = saturate(dot(normal, light.dir));
+
+    UnityIndirect indirectLight;
+    UNITY_INITIALIZE_OUTPUT(UnityIndirect, indirectLight);
+    indirectLight.diffuse += max(0, ShadeSH9(float4(normal, 1)));
+
+    return UNITY_BRDF_PBS(albedo, specColor, oneMinusReflectivity, _Smoothness, normal, -i.rayDirection, light, indirectLight);
 }
 
 #endif // RAY_MARCHING_INCLUDE
