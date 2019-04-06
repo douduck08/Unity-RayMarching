@@ -4,25 +4,30 @@
 // ref: http://www.iquilezles.org/www/articles/distfunctions/distfunctions.htㄤ
 
 // Distance Field functions
-float df_Sphere (float3 pos, float3 center, float radius) {
+float sd_Sphere (float3 pos, float3 center, float radius) {
     return length(pos - center) - radius;
 }
 
-float df_Box (float3 pos, float3 box) {
-    float3 d = abs(pos) - box;
+float sd_Box (float3 pos, float3 center, float3 box) {
+    float3 d = abs(pos - center) - box;
     return length(max(d, 0.0))
          + min(max(d.x, max(d.y, d.z)), 0.0); // remove this line for an only partially signed sdf 
 }
 
-float df_Cylinder_x (float3 pos, float2 c, float radius) {
+float sd_Plane(float3 pos, float4 n){
+  // n must be normalized
+  return dot(pos, n.xyz) + n.w;
+}
+
+float sd_Cylinder_x (float3 pos, float2 c, float radius) {
     return length(pos.yz - c) - radius;
 }
 
-float df_Cylinder_y (float3 pos, float2 c, float radius) {
+float sd_Cylinder_y (float3 pos, float2 c, float radius) {
     return length(pos.xz - c) - radius;
 }
 
-float df_Cylinder_z (float3 pos, float2 c, float radius) {
+float sd_Cylinder_z (float3 pos, float2 c, float radius) {
     return length(pos.xy - c) - radius;
 }
 

@@ -6,7 +6,7 @@ Material:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
-  m_Name: Ray Marching SDF
+  m_Name: VolumetricSDF
   m_Shader: {fileID: 4800000, guid: f7a951a077bab7a41a781ee607c84a68, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -22,8 +22,13 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _Volume:
+        m_Texture: {fileID: 11700000, guid: c4c5afc626bda48dbb6360add4cd81c5, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Floats:
-    - _Metallic: 0.02
-    - _Smoothness: 0.864
+    - _Metallic: 0
+    - _Smoothness: 0.5
+    - _WorldSpace: 0
     m_Colors:
-    - _Color: {r: 1, g: 0, b: 0, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
