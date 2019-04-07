@@ -10,6 +10,8 @@ using UnityEditor;
 [RequireComponent (typeof (MeshFilter))]
 public class SDFBaker : MonoBehaviour {
 
+    public ComputeShader bakerCs;
+
     public int resolution = 64;
     public bool sphereTesting;
 
@@ -92,16 +94,55 @@ public class SDFBaker : MonoBehaviour {
         return dis * (intersectCount % 2 == 0 ? 1f : -1f);
     }
 
-    void OnDrawGizmos () {
+#if UNITY_EDITOR
+    [ContextMenu ("Bake sdf into Texture3D (GPU)")]
+    void BakeGPU () {
+        string path = EditorUtility.SaveFilePanelInProject ("Save sdf into Texture3D asset", "", "asset", "");
+        if (string.IsNullOrEmpty (path)) return;
+        Debug.Log ("Save sdf into Texture3D asset: " + path);
+        DateTime dt = DateTime.Now;
 
+        var renderTexture = new RenderTexture (resolution, resolution, 0);
+        renderTexture.enableRandomWrite = true;
+        renderTexture.dimension = UnityEngine.Rendering.TextureDimension.Tex3D;
+        renderTexture.volumeDepth = resolution;
+        renderTexture.Create ();
+
+        var meshFilter = GetComponent<MeshFilter> ();
+        var mesh = meshFilter.sharedMesh;
+        var bounds = mesh.bounds;
+        var vertices = mesh.vertices;
+        var triangles = mesh.triangles;
+
+        var kernal = bakerCs.FindKernel ("SDFBaking");
+        var group = Mathf.CeilToInt (resolution / 4);
+        var padding = 2f / resolution;
+        var verticesBuffer = new ComputeBuffer (vertices.Length, 12);
+        verticesBuffer.SetData (vertices);
+        var trianglesBuffer = new ComputeBuffer (triangles.Length, 4);
+        trianglesBuffer.SetData (triangles);
+
+        bakerCs.SetTexture (kernal, "result", renderTexture);
+        bakerCs.SetBuffer (kernal, "vertices", verticesBuffer);
+        bakerCs.SetBuffer (kernal, "triangles", trianglesBuffer);
+        bakerCs.SetFloat ("resolution", resolution);
+        bakerCs.SetInt ("triangleCount", triangles.Length / 3);
+        bakerCs.SetVector ("boundsSize", new Vector4 (bounds.size.x + padding, bounds.size.y + padding, bounds.size.z + padding));
+        bakerCs.SetVector ("boundsCenter", bounds.center);
+        bakerCs.Dispatch (kernal, group, group, group);
+
+        verticesBuffer.Release ();
+        trianglesBuffer.Release ();
+
+        TimeSpan ts = DateTime.Now - dt;
+        Debug.Log ("Baking time: " + ts);
+        AssetDatabase.CreateAsset (renderTexture, path);
     }
 
-#if UNITY_EDITOR
     [ContextMenu ("Bake sdf into Texture3D")]
     void Bake (MenuCommand command) {
         string path = EditorUtility.SaveFilePanelInProject ("Save sdf into Texture3D asset", "", "asset", "");
         if (string.IsNullOrEmpty (path)) return;
-
         Debug.Log ("Save sdf into Texture3D asset: " + path);
 
         var meshFilter = GetComponent<MeshFilter> ();
@@ -138,10 +179,6 @@ public class SDFBaker : MonoBehaviour {
         TimeSpan ts = DateTime.Now - dt;
         Debug.Log ("Baking time: " + ts);
 
-        // string uid = AssetDatabase.AssetPathToGUID (path);
-        // if (!string.IsNullOrEmpty (uid)) {
-        //     var oldAsset = AssetDatabase.LoadAssetAtPath (path, typeof (Texture3D));
-        // }
         AssetDatabase.CreateAsset (texture, path);
     }
 #endif

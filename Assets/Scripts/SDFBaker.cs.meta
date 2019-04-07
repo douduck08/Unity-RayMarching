@@ -3,7 +3,8 @@ guid: 39c3a010f61e04521bb1310001df658b
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - bakerCs: {fileID: 7200000, guid: bade4f1a890b443d589dcf3398bb3281, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
