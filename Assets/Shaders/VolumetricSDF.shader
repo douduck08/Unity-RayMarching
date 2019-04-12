@@ -17,7 +17,7 @@ Shader "Volumetric SDF" {
             #pragma fragment frag_sdf
 
             #define SDF_SHADOW
-            #define SDF_SHADOW_LEVEL 0
+            #define SDF_SHADOW_LEVEL 1
             #define SDF_VOLUME
             #include "RayMarching.cginc"
             ENDCG

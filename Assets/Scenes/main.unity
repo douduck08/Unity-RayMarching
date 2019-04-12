@@ -434,7 +434,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4797f444fb88945929e5a345b84b6587, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sdfMaterial: {fileID: 2100000, guid: 3cc8b1c11e4034578a2464a9d1c7f98b, type: 2}
+  testVolume: {fileID: 11700000, guid: 40ec0010d2aab6b42aa02a8802677db8, type: 2}
+  testAnchor: {fileID: 327784905}
 --- !u!20 &282840813
 Camera:
   m_ObjectHideFlags: 0

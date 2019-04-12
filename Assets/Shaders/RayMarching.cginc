@@ -43,7 +43,7 @@ float inside_volume(float3 pos) {
 }
 
 float2 ray_marching (float3 ray_origin, float3 ray_direction) {
-    const float precision = 0.001;
+    const float precision = 0.01;
     const float max_distance = 100.0;
     float3 pos;
     float dis = precision * 2.0;
@@ -76,7 +76,7 @@ float3 get_normal (float3 pos) {
 }
 
 float get_atten (float3 ray_origin, float3 ray_direction) {
-    const float precision = 0.001;
+    const float precision = 0.01;
     const float max_distance = 100.0;
     float3 pos;
     float dis = precision * 10.0;
@@ -99,6 +99,8 @@ float get_atten (float3 ray_origin, float3 ray_direction) {
             pre_dis = dis;
         #elif SDF_SHADOW_LEVEL == 1
             rest = min(rest, k * dis / ray_distance);
+        #else
+            #error invalidate shadow level
         #endif
     }
 

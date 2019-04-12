@@ -1,18 +1,27 @@
 ﻿#pragma kernel CSMain
 
+#define SDF_SHADOW
+#define SDF_SHADOW_LEVEL 1
+// #define SDF sdf_volume
+// sampler3D _VolumeTex;
+// float4x4 _VolumeInvTransform;
+// float sdf_volume (float3 pos) {
+//     pos = mul(_VolumeInvTransform, float4(pos, 1)).xyz;
+//     return tex3Dlod (_VolumeTex, float4(pos, 0)).r * 2.0 - 1.0;
+// }
 #define SDF sdf_volume
-sampler3D _VolumeTex;
-float4x4 _VolumeInvTransform;
+#include "../DistanceFunctions.cginc"
 float sdf_volume (float3 pos) {
-    pos = mul(_VolumeInvTransform, float4(pos, 1)).xyz;
-    return tex3Dlod (_VolumeTex, float4(pos, 0)).r * 2.0 - 1.0;
+    float d = sd_Sphere(pos, 0.0, 0.49);
+    d = op_Union(d, sd_Plane(pos, float4(0, 1, 0, 1)));
+    return d;
 }
 
 #include "../RayMarching.cginc"
 
 RWTexture2D<float4> Result;
 
-float3 shading (float3 viewDir, float3 normal, float3 color, float metallic, float smoothness) {
+float3 shading (float3 viewDir, float3 pos, float3 normal, float3 color, float metallic, float smoothness) {
     float3 lightDir = _WorldSpaceLightPos0.xyz;
 
 #ifdef SDF_SHADOW
@@ -57,7 +66,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
 
     float3 pos = rayOrigin + rayDirection * output.x;
     float3 normal = get_normal(pos);
-    float3 color = shading(-rayDirection, normal, float3(1, 1, 1), 0.02, 0.5);
+    float3 color = shading(-rayDirection, pos, normal, float3(1, 1, 1), 0.02, 0.5);
 
     Result[id.xy] = float4(color, 0.0);
 }
