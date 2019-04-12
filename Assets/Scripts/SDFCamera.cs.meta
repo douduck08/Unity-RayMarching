@@ -1,10 +1,9 @@
 fileFormatVersion: 2
-guid: 39c3a010f61e04521bb1310001df658b
+guid: 4797f444fb88945929e5a345b84b6587
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences:
-  - bakerCs: {fileID: 7200000, guid: bade4f1a890b443d589dcf3398bb3281, type: 3}
+  defaultReferences: []
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
