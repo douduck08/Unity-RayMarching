@@ -6,8 +6,8 @@ Material:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
-  m_Name: VolumeViewer
-  m_Shader: {fileID: 4800000, guid: 37e233a74c04d453183cd96d61a0af94, type: 3}
+  m_Name: Hidden_SDFVisualizer
+  m_Shader: {fileID: 4800000, guid: 84d47172a10d1db429a585d11e96c31f, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -19,11 +19,11 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _MainTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 117098273967814790, guid: 89d557d0f5d2b32429ad53f1159e6535,
+          type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:
-    - _Alpha: 0
-    - _Step: 0
-    - _Z: 0
+    - _Depth: 0.5
+    - _Mode: 0
     m_Colors: []
