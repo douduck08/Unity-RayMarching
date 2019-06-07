@@ -32,8 +32,8 @@
     
     half4 frag(v2f i) : SV_Target {
         half4 data = tex3D(_MainTex, float3(i.texcoord, _Depth));
-        half dist = data.a;
-        half3 grad = data.rgb;
+        half3 dist = data.a;
+        half3 grad = data.rgb * 2 - 1;
         return half4(lerp(dist, grad, _Mode), 1);
     }
 
