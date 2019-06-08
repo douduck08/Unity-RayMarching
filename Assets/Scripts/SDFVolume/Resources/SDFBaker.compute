@@ -1,0 +1,86 @@
+﻿#pragma kernel SDFBaking
+
+RWStructuredBuffer<float3> vertices;
+RWStructuredBuffer<int> triangles;
+RWStructuredBuffer<float> distances;
+
+int triangleCount;
+int resolution;
+float scale;
+
+float dot (float3 v) {
+    return dot(v, v);
+}
+
+float df_triangle (float3 pos, float3 a, float3 b, float3 c) {
+    float3 ab = b - a, bc = c - b, ca = a - c;
+    float3 ap = pos - a, bp = pos - b, cp = pos - c;
+    float3 normal = cross(ab, ca);
+
+    float value;
+    if (sign(dot(cross(ab, normal), ap)) + sign(dot(cross(bc, normal), bp)) + sign(dot(cross(ca, normal), cp)) < 2.0) {
+        value = min(min(
+            dot (ab * clamp(dot(ab, ap) / dot(ab, ab), 0, 1) - ap),
+            dot (bc * clamp(dot(bc, bp) / dot(bc, bc), 0, 1) - bp)),
+            dot (ca * clamp(dot(ca, cp) / dot(ca, ca), 0, 1) - cp)
+        );
+    } else {
+        value = dot(normal, ap) * dot(normal, ap) / dot(normal, normal);
+    }
+    return sqrt (value);
+}
+
+uint ray_triangle_intersect (float3 origin, float3 dir, float3 p1, float3 p2, float3 p3) {
+    float3 e1 = p2 - p1, e2 = p3 - p1;
+    float3 h = cross(dir, e2);
+    float a = dot(e1, h);
+    if (abs(a) < 0.0000001) return 0;
+
+    float f = 1.0 / a;
+    float3 s = origin - p1;
+    float u = f * (dot(s, h));
+    if (u < 0.0 || u > 1.0) return 0;
+
+    float3 q = cross(s, e1);
+    float v = f * dot(dir, q);
+    if (v < 0.0 || u + v > 1.0) return 0;
+
+    float t = f * dot(e2, q);
+    if (t > 0.0000001) {
+        // intersectionPoint = origin + dir * t;
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+float get_mesh_distance (float3 pos) {
+    const float3 up = float3(0, 1, 0);
+    float dis = 1e10;
+    uint intersect = 0;
+    for (int i = 0; i < triangleCount; i++) {
+        float3 p1 = vertices[triangles[i * 3]];
+        float3 p2 = vertices[triangles[i * 3 + 1]];
+        float3 p3 = vertices[triangles[i * 3 + 2]];
+        dis = min(dis, df_triangle (pos, p1, p2, p3));
+        intersect = intersect + ray_triangle_intersect (pos, up, p1, p2, p3);
+    }
+    return dis * (intersect % 2 == 0 ? 1.0 : -1.0);
+}
+
+int get_index (uint3 id) {
+    return id.x + resolution * (id.y + resolution * id.z);
+}
+
+[numthreads(4,4,4)]
+void SDFBaking (uint3 id : SV_DispatchThreadID) {
+    if (id.x >= resolution || id.y >= resolution || id.z >= resolution) return;
+
+    float3 pos = float3(id.x, id.y, id.z);
+    pos = pos / (resolution - 1) - 0.5;
+    pos = pos * scale;
+
+    float dis = get_mesh_distance (pos);
+    int index = get_index(id);
+    distances[index] = dis / scale;
+}

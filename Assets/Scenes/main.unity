@@ -391,13 +391,13 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 170076733}
-  m_LocalRotation: {x: 0.3434423, y: 0.2618517, z: -0.10033196, w: 0.896334}
+  m_LocalRotation: {x: 0.47536913, y: -0.0014227332, z: 0.10425667, w: 0.8735861}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: 41.93, y: 32.57, z: 0}
+  m_LocalEulerAnglesHint: {x: 56.186, y: 10, z: 18.959002}
 --- !u!1 &282840810
 GameObject:
   m_ObjectHideFlags: 0
@@ -518,6 +518,7 @@ MonoBehaviour:
   resolution: 100
   scale: 1.2
   iteration: 10
+  useGpu: 1
 --- !u!64 &327784902
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -635,7 +636,7 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RenderingLayerMask: 4294967295
   m_Materials:
-  - {fileID: 1161656510}
+  - {fileID: 1084243668}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -686,9 +687,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fccea6689c9352d4eb4f1c71df57e5dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sdfAsset: {fileID: 11400000, guid: 5ddcf38ffbd8a41b18fc429195ed7874, type: 2}
-  mode: 1
-  depth: 0.358
+  sdfAsset: {fileID: 11400000, guid: 89d557d0f5d2b32429ad53f1159e6535, type: 2}
+  mode: 0
+  depth: 1
 --- !u!1 &396733271
 GameObject:
   m_ObjectHideFlags: 0
@@ -719,7 +720,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56cb4c325536d4c86b46b9b36aa23194, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sdfAsset: {fileID: 11400000, guid: 5ddcf38ffbd8a41b18fc429195ed7874, type: 2}
+  sdfAsset: {fileID: 11400000, guid: 89d557d0f5d2b32429ad53f1159e6535, type: 2}
   color: {r: 1, g: 0, b: 0, a: 1}
   glossiness: 0.5
   metallic: 0
@@ -750,7 +751,7 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RenderingLayerMask: 4294967295
   m_Materials:
-  - {fileID: 2100166366}
+  - {fileID: 1725963144}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -783,14 +784,14 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 396733271}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
   m_LocalPosition: {x: -1.5, y: 1.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 3
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!21 &1161656510
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
+--- !u!21 &1084243668
 Material:
   serializedVersion: 6
   m_ObjectHideFlags: 0
@@ -809,14 +810,42 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _MainTex:
-        m_Texture: {fileID: 117104563832617108, guid: 5ddcf38ffbd8a41b18fc429195ed7874,
+        m_Texture: {fileID: 117084215587529152, guid: 89d557d0f5d2b32429ad53f1159e6535,
           type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:
-    - _Depth: 0.358
-    - _Mode: 1
+    - _Depth: 1
+    - _Mode: 0
     m_Colors: []
+--- !u!21 &1725963144
+Material:
+  serializedVersion: 6
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: Custom/SDFVolume
+  m_Shader: {fileID: 4800000, guid: 56ad62ac2fe62429abefb3baca015349, type: 3}
+  m_ShaderKeywords: 
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _Volume:
+        m_Texture: {fileID: 117084215587529152, guid: 89d557d0f5d2b32429ad53f1159e6535,
+          type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Floats:
+    - _Glossiness: 0.5
+    - _Metallic: 0
+    m_Colors:
+    - _Color: {r: 1, g: 0, b: 0, a: 1}
 --- !u!1 &2083626751
 GameObject:
   m_ObjectHideFlags: 0
@@ -850,6 +879,7 @@ MonoBehaviour:
   resolution: 100
   scale: 1.2
   iteration: 10
+  useGpu: 1
 --- !u!64 &2083626753
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -919,31 +949,3 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!21 &2100166366
-Material:
-  serializedVersion: 6
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_Name: Custom/SDFVolume
-  m_Shader: {fileID: 4800000, guid: 56ad62ac2fe62429abefb3baca015349, type: 3}
-  m_ShaderKeywords: 
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _Volume:
-        m_Texture: {fileID: 117104563832617108, guid: 5ddcf38ffbd8a41b18fc429195ed7874,
-          type: 2}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Floats:
-    - _Glossiness: 0.5
-    - _Metallic: 0
-    m_Colors:
-    - _Color: {r: 1, g: 0, b: 0, a: 1}
