@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [ExecuteInEditMode]
+[RequireComponent (typeof (MeshRenderer))]
 public class SDFVolume : MonoBehaviour {
 
     [SerializeField] SDFAsset sdfAsset;

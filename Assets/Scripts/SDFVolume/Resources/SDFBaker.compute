@@ -74,7 +74,8 @@ int get_index (uint3 id) {
 
 [numthreads(4,4,4)]
 void SDFBaking (uint3 id : SV_DispatchThreadID) {
-    if (id.x >= resolution || id.y >= resolution || id.z >= resolution) return;
+    uint indexBound = (uint)resolution;
+    if (id.x >= indexBound || id.y >= indexBound || id.z >= indexBound) return;
 
     float3 pos = float3(id.x, id.y, id.z);
     pos = pos / (resolution - 1) - 0.5;

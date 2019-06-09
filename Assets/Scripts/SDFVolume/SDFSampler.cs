@@ -26,6 +26,10 @@ public class SDFSampler : MonoBehaviour {
             }
 
             var meshFilter = GetComponent<MeshFilter> ();
+            if (meshFilter == null) {
+                Debug.LogError ("SDFSampler GPU mode need MeshFilter to load mesh data");
+            }
+
             var mesh = meshFilter.sharedMesh;
             var vertices = mesh.vertices;
             var triangles = mesh.triangles;

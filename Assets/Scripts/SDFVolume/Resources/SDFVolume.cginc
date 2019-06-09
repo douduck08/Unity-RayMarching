@@ -17,7 +17,7 @@ float4 sample_volume (float3 pos) {
 }
 
 float ray_marching (float3 ray_origin, float3 ray_direction, out float3 pos, out float3 normal) {
-    const float precision = 0.02;
+    const float precision = 0.001;
     const float max_distance = 2.0;
 
     float4 df;
