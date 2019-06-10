@@ -5,7 +5,6 @@ using UnityEngine;
 public class RayMarchingVolume : MonoBehaviour {
 
     [SerializeField] SDFAsset sdfAsset;
-    Matrix4x4 invTransform;
 
     public Texture3D volume {
         get {
@@ -16,19 +15,14 @@ public class RayMarchingVolume : MonoBehaviour {
         }
     }
 
-    public Matrix4x4 inverseTransform {
-        get {
-            return invTransform;
-        }
-    }
+    public Matrix4x4 inverseMatrix { get; protected set; }
 
     void OnEnable () {
-        invTransform = this.transform.worldToLocalMatrix;
+        inverseMatrix = this.transform.worldToLocalMatrix;
         RayMarchingManager.instance.RegisterRayMarchingVolume (this);
     }
 
     void OnDisable () {
         RayMarchingManager.instance.UnrgisterRayMarchingVolume (this);
     }
-
 }

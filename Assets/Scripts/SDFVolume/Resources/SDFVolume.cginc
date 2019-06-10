@@ -5,6 +5,10 @@
 #include "UnityPBSLighting.cginc"
 #include "AutoLight.cginc"
 
+#define MAX_RAY_MARCHING_STEP 64
+#define MAX_RAY_MARCHING_DISTANCE 2.0
+#define MAX_RAY_MARCHING_PRECISION 0.001
+
 sampler3D _Volume;
 float4 _Color;
 float _Metallic;
@@ -17,14 +21,11 @@ float4 sample_volume (float3 pos) {
 }
 
 float ray_marching (float3 ray_origin, float3 ray_direction, out float3 pos, out float3 normal) {
-    const float precision = 0.001;
-    const float max_distance = 2.0;
-
     float4 df;
-    float dis = precision * 2.0;
+    float dis = MAX_RAY_MARCHING_PRECISION * 2.0;
     float ray_distance = 0.0;
 
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < MAX_RAY_MARCHING_STEP; i++) {
         ray_distance += dis;
         pos = ray_origin + ray_direction * ray_distance;
 
@@ -32,11 +33,16 @@ float ray_marching (float3 ray_origin, float3 ray_direction, out float3 pos, out
         dis = df.w;
         normal = normalize(df.xyz);
 
-        if(dis < precision || ray_distance > max_distance) break;
+        if(dis < MAX_RAY_MARCHING_PRECISION || ray_distance > MAX_RAY_MARCHING_DISTANCE) break;
     }
 
-    float m = ray_distance > max_distance ? -1.0 : 1.0;
+    float m = ray_distance > MAX_RAY_MARCHING_DISTANCE ? -1.0 : 1.0;
     return m;
+}
+
+float get_atten (float3 pos, float3 lightDir) {
+    // TODO: shadow
+    return 1.0;
 }
 
 // vertex & fragment shader
@@ -69,8 +75,7 @@ float4 frag_sdf (v2f_ray i) : SV_Target {
     clip (output);
 
     float3 lightDir = mul((float3x3)unity_WorldToObject, _WorldSpaceLightPos0.xyz);
-    // float atten = get_atten_hard (pos, lightDir);
-    float atten = 1;
+    float atten = get_atten (pos, lightDir);
 
     float3 specColor;
     float oneMinusReflectivity;

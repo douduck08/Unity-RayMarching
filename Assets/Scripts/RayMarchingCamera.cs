@@ -13,8 +13,8 @@ public class RayMarchingCamera : MonoBehaviour {
     ComputeShader renderCs;
     int renderKernal, groupX, groupY;
 
-    ComputeBuffer volumesBuffer;
-    ComputeBuffer inverseTransformsBuffer;
+    ComputeBuffer volumeIndexBuffer;
+    ComputeBuffer inverseMatrixBuffer;
 
     void OnEnable () {
         renderCs = (ComputeShader) Resources.Load ("RayMarching");
@@ -25,19 +25,23 @@ public class RayMarchingCamera : MonoBehaviour {
         result.enableRandomWrite = true;
         result.wrapMode = TextureWrapMode.Clamp;
         result.Create ();
-        renderCs.SetTexture (renderKernal, "Result", result);
+        renderCs.SetTexture (renderKernal, "result", result);
 
         uint x, y, z;
         renderCs.GetKernelThreadGroupSizes (renderKernal, out x, out y, out z);
         groupX = Mathf.CeilToInt (camera.pixelWidth / x);
         groupY = Mathf.CeilToInt (camera.pixelHeight / y);
 
-        // TODO: init ComputeBuffer
+        volumeIndexBuffer = new ComputeBuffer (RayMarchingManager.MAX_VOLUME_INSTANCE_NUMBER, 4);
+        inverseMatrixBuffer = new ComputeBuffer (RayMarchingManager.MAX_VOLUME_INSTANCE_NUMBER, 4 * 16);
+
+        renderCs.SetBuffer (renderKernal, "volumeIndexBuffer", volumeIndexBuffer);
+        renderCs.SetBuffer (renderKernal, "inverseMatrixBuffer", inverseMatrixBuffer);
     }
 
     void OnDisable () {
-        if (volumesBuffer != null) volumesBuffer.Release ();
-        if (inverseTransformsBuffer != null) inverseTransformsBuffer.Release ();
+        if (volumeIndexBuffer != null) volumeIndexBuffer.Release ();
+        if (inverseMatrixBuffer != null) inverseMatrixBuffer.Release ();
     }
 
     void OnRenderImage (RenderTexture src, RenderTexture dest) {
@@ -50,22 +54,27 @@ public class RayMarchingCamera : MonoBehaviour {
 
     void UpdateKernalParameters () {
         camera.CalculateFrustumCorners (new Rect (0, 0, 1, 1), camera.farClipPlane, Camera.MonoOrStereoscopicEye.Mono, frustumCorners);
-        frustumCornersMatrix.SetRow (0, frustumCorners[0]);
-        frustumCornersMatrix.SetRow (1, frustumCorners[1]);
-        frustumCornersMatrix.SetRow (2, frustumCorners[2]);
-        frustumCornersMatrix.SetRow (3, frustumCorners[3]);
-        renderCs.SetMatrix ("_FrustumCorners", frustumCornersMatrix);
+        frustumCornersMatrix.SetRow (0, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (frustumCorners[0])));
+        frustumCornersMatrix.SetRow (1, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (frustumCorners[1])));
+        frustumCornersMatrix.SetRow (2, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (frustumCorners[2])));
+        frustumCornersMatrix.SetRow (3, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (frustumCorners[3])));
+        renderCs.SetMatrix ("cameraFrustumCorners", frustumCornersMatrix);
     }
 
     void UpdateComputeBuffer () {
         if (RayMarchingManager.instance.RebuildDataArrayIfNeeded ()) {
-            var volumeArray = RayMarchingManager.instance.volumeArray;
-            var invertTransformArray = RayMarchingManager.instance.inverseTransformArray;
+            var volumeIndexArray = RayMarchingManager.instance.volumeIndexArray;
+            var inverseMatrixArray = RayMarchingManager.instance.inverseMatrixArray;
+            volumeIndexBuffer.SetData (volumeIndexArray);
+            inverseMatrixBuffer.SetData (inverseMatrixArray);
+            renderCs.SetInt ("volumeInstanceNumber", volumeIndexArray.Length);
 
-            // TODO: update ComputeBuffer
-            volumesBuffer.SetData (volumeArray);
-            inverseTransformsBuffer.SetData (invertTransformArray);
-            renderCs.SetInt ("volumeNumber", volumeArray.Length);
+            for (int i = 0; i < RayMarchingManager.MAX_VOLUME_TEXTURE_NUMBER; i++) {
+                var texture = RayMarchingManager.instance.GetSdfVolumeTexture (i);
+                if (texture != null) {
+                    renderCs.SetTexture (renderKernal, "sdfVolumeTexture" + i.ToString (), texture);
+                }
+            }
         }
     }
 }
