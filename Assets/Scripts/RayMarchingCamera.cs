@@ -73,6 +73,8 @@ public class RayMarchingCamera : MonoBehaviour {
                 var texture = RayMarchingManager.instance.GetSdfVolumeTexture (i);
                 if (texture != null) {
                     renderCs.SetTexture (renderKernal, "sdfVolumeTexture" + i.ToString (), texture);
+                } else {
+                    renderCs.SetTexture (renderKernal, "sdfVolumeTexture" + i.ToString (), RayMarchingManager.instance.emptyVolume);
                 }
             }
         }

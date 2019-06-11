@@ -8,6 +8,7 @@
 #define MAX_RAY_MARCHING_STEP 256
 #define MAX_RAY_MARCHING_DISTANCE 100.0
 #define MAX_RAY_MARCHING_PRECISION 0.001
+#define SOFT_SHADOW_TYPE 0
 
 sampler3D sdfVolumeTexture0;
 sampler3D sdfVolumeTexture1;
@@ -27,21 +28,20 @@ float3 GetRayDirection (float2 uv) {
 float4 SampleSdfInstance (int index, float3 pos) {
     pos = mul(inverseMatrixBuffer[index], float4(pos, 1)).xyz;
     float4 uv = float4(pos + 0.5, 0);
-
-    float4 df;
     int volumeIndex = volumeIndexBuffer[index];
 
+    float4 df;
     if (volumeIndex == 0) { df = tex3Dlod(sdfVolumeTexture0, uv); } 
-    // else if (volumeIndex == 1) { df = tex3Dlod(sdfVolumeTexture1, uv); } 
-    // else if (volumeIndex == 2) { df = tex3Dlod(sdfVolumeTexture2, uv); }
-    // else { df = tex3Dlod(sdfVolumeTexture3, uv); }
+    else if (volumeIndex == 1) { df = tex3Dlod(sdfVolumeTexture1, uv); } 
+    else if (volumeIndex == 2) { df = tex3Dlod(sdfVolumeTexture2, uv); }
+    else { df = tex3Dlod(sdfVolumeTexture3, uv); }
 
     df = df * 2.0 - 1.0;
     return df;
 }
 
 float4 SampleGlobalSdf (float3 pos) {
-    float4 df = float4(0, 1, 0, pos.y); // an infinity plane
+    float4 df = float4(0, 0, 0, 1e20);
     float4 temp_df;
     for (int i = 0; i < volumeInstanceNumber; i++) {
         temp_df = SampleSdfInstance(i, pos);
@@ -58,28 +58,57 @@ float RayMarching (float3 ray_origin, float3 ray_direction, out float3 pos, out 
     float ray_distance = 0.0;
 
     for (int i = 0; i < MAX_RAY_MARCHING_STEP; i++) {
+        if(dis < MAX_RAY_MARCHING_PRECISION || ray_distance > MAX_RAY_MARCHING_DISTANCE) break;
         ray_distance += dis;
         pos = ray_origin + ray_direction * ray_distance;
 
         df = SampleGlobalSdf(pos);
         dis = df.w;
         normal = normalize(df.xyz);
-
-        if(dis < MAX_RAY_MARCHING_PRECISION || ray_distance > MAX_RAY_MARCHING_DISTANCE) break;
     }
 
     float m = ray_distance > MAX_RAY_MARCHING_DISTANCE ? -1.0 : 1.0;
     return m;
 }
 
-float GetLightAtten (float3 pos, float3 lightDir) {
-    // TODO: shadow
-    return 1.0;
+float GetLightAtten (float3 pixel_pos, float3 light_dir) {
+    float3 pos;
+    float dis = MAX_RAY_MARCHING_PRECISION * 10.0;
+    float ray_distance = 0.0;
+
+#if SOFT_SHADOW_TYPE == 1
+    const float k = 8;
+#elif SOFT_SHADOW_TYPE == 2
+    const float k = 8;
+    float pre_dis = 1e20;
+    float y, d;
+#endif
+
+    float rest = 1.0;
+    for (int i = 0; i < MAX_RAY_MARCHING_STEP; i++) {
+        if(dis < MAX_RAY_MARCHING_PRECISION || ray_distance > MAX_RAY_MARCHING_DISTANCE) break;
+        ray_distance += dis;
+        pos = pixel_pos + light_dir * ray_distance;
+        dis = SampleGlobalSdf(pos).w;
+
+        // TODO: need to fix, soft shadow not work, because distance doesn't rescale into world space
+#if SOFT_SHADOW_TYPE == 1
+        rest = min(rest, k * dis / ray_distance);
+#elif SOFT_SHADOW_TYPE == 2
+        y = dis * dis / (2.0 * pre_dis);
+        d = sqrt(dis * dis - y * y);
+        rest = min(rest, k * dis / max(0.0, ray_distance - y));
+        pre_dis = dis;
+#endif
+    }
+
+    float atten = ray_distance > MAX_RAY_MARCHING_DISTANCE ? rest : 0.0;
+    return atten;
 }
 
 float3 Shading (float3 viewDir, float3 pos, float3 normal, float3 color, float metallic, float smoothness) {
     float3 lightDir = _WorldSpaceLightPos0.xyz;
-    float atten = GetLightAtten (pos, lightDir);
+    float atten = GetLightAtten(pos, lightDir);
 
     float3 specColor;
     float oneMinusReflectivity;

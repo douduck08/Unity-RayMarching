@@ -7,20 +7,17 @@ using UnityEngine;
 public class SDFVolume : MonoBehaviour {
 
     [SerializeField] SDFAsset sdfAsset;
+    [SerializeField] float scale = 1f;
+
     [SerializeField] Color color = Color.white;
     [SerializeField, Range (0f, 1f)] float glossiness = 0.5f;
     [SerializeField, Range (0f, 1f)] float metallic = 0f;
 
-    MeshRenderer meshRenderer;
     Material material;
 
     void OnEnable () {
         material = new Material (Shader.Find ("Custom/SDFVolume"));
         material.name = "Custom/SDFVolume";
-
-        meshRenderer = GetComponent<MeshRenderer> ();
-        meshRenderer.sharedMaterial = material;
-
         OnValidate ();
     }
 
@@ -31,5 +28,11 @@ public class SDFVolume : MonoBehaviour {
         material.SetColor ("_Color", color);
         material.SetFloat ("_Glossiness", glossiness);
         material.SetFloat ("_Metallic", metallic);
+    }
+
+    void OnRenderObject () {
+        var matrix = transform.localToWorldMatrix;
+        matrix = matrix * Matrix4x4.Scale (new Vector3 (scale, scale, scale));
+        Graphics.DrawMesh (SDFUtils.volumeCubeMesh, matrix, material, 0);
     }
 }

@@ -15,8 +15,6 @@ public class RayMarchingManager {
         }
     }
 
-    RayMarchingManager () { }
-
     public const int MAX_VOLUME_TEXTURE_NUMBER = 4;
     public const int MAX_VOLUME_INSTANCE_NUMBER = 100;
 
@@ -24,8 +22,18 @@ public class RayMarchingManager {
     List<RayMarchingVolume> volumes = new List<RayMarchingVolume> ();
     List<Texture3D> sdfVolumeList;
 
+    public Texture3D emptyVolume;
     public int[] volumeIndexArray;
     public Matrix4x4[] inverseMatrixArray;
+
+    RayMarchingManager () {
+        emptyVolume = new Texture3D (1, 1, 1, TextureFormat.RGBAHalf, true);
+        emptyVolume.name = "Empty Volume";
+        emptyVolume.filterMode = FilterMode.Bilinear;
+        emptyVolume.wrapMode = TextureWrapMode.Clamp;
+        emptyVolume.SetPixels (new [] { new Color (0, 0, 0, 1) });
+        emptyVolume.Apply ();
+    }
 
     public void RegisterRayMarchingVolume (RayMarchingVolume volume) {
         volumes.Add (volume);
@@ -46,7 +54,7 @@ public class RayMarchingManager {
                 sdfVolumeList.Add (volume.volume);
             }
         }
-        Debug.Log ("Enabled volume texture number: " + sdfVolumeList.Count);
+        // Debug.Log ("Enabled volume texture number: " + sdfVolumeList.Count);
 
         var indexList = new List<int> ();
         var matrixList = new List<Matrix4x4> ();
