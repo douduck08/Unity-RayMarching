@@ -4,6 +4,7 @@
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
+/[Ll]ogs/
 
 # Visual Studio / MonoDevelop
 .vs/
