@@ -10,9 +10,9 @@ public class SDFBakerEditor : Editor {
         base.OnInspectorGUI ();
 
         var baker = target as SDFBaker;
-        if (GUILayout.Button ("Create 3D Texture")) {
-            Create3DTextureAsset (baker);
-        }
+        // if (GUILayout.Button ("Create 3D Texture")) {
+        //     Create3DTextureAsset (baker);
+        // }
         if (GUILayout.Button ("Bake")) {
             baker.Bake ();
         }

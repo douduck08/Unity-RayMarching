@@ -1,8 +1,7 @@
-﻿Shader "Hidden/SDFVisualizer" {
+﻿Shader "Hidden/SDF Viewer" {
     Properties {
-        _MainTex("SDF Volume", 3D) = "white" {}
-        _Depth("Depth", Range(0, 1)) = 0.5
-        _Mode("Mode", float) = 0
+        _SDFTexture("SDF Volume", 3D) = "white" {}
+        _Slice("Depth", Range(0, 1)) = 0.5
     }
 
     CGINCLUDE
@@ -16,25 +15,27 @@
 
     struct v2f {
         float4 vertex : SV_POSITION;
-        float2 texcoord : TEXCOORD;
+        float2 uv : TEXCOORD;
     };
 
-    sampler3D _MainTex;
-    float _Depth;
-    float _Mode;
+    sampler3D _SDFTexture;
+    float _Slice;
     
     v2f vert(appdata v) {
         v2f o;
         o.vertex = UnityObjectToClipPos(v.vertex);
-        o.texcoord = v.texcoord;
+        o.uv = v.texcoord;
         return o;
     }
     
     half4 frag(v2f i) : SV_Target {
-        half4 data = tex3D(_MainTex, float3(i.texcoord, _Depth));
-        half3 dist = frac(data.a * 20);
-        half3 grad = data.rgb * 2 - 1;
-        return half4(lerp(dist, grad, _Mode), 1);
+        float raw = tex3D(_SDFTexture, float3(i.uv, _Slice)).r;
+        return half4(raw > 0.51, 0, 0, 1);
+
+        float dis = raw * 2.0 - 1.0;
+        float positive = frac(max(dis, 0) * 10);
+        float negtaive = frac(max(-dis, 0) * 10);
+        return half4(positive, 0, negtaive, 1);
     }
 
     ENDCG
