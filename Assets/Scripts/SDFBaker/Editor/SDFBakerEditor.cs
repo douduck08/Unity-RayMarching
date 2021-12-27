@@ -16,14 +16,16 @@ public class SDFBakerEditor : Editor {
         if (GUILayout.Button ("Bake")) {
             baker.Bake ();
         }
+        if (GUILayout.Button ("Save as Texture Asset")) {
+            SaveAsTextureAsset (baker);
+        }
     }
 
-    void Create3DTextureAsset (SDFBaker baker) {
-        var path = EditorUtility.SaveFilePanel ("Create 3D Texture", Application.dataPath, "SDF Texture.asset", "asset");
+    void SaveAsTextureAsset (SDFBaker baker) {
+        var path = EditorUtility.SaveFilePanel ("Save as ...", Application.dataPath, "SDF Texture.asset", "asset");
         if (path.Length != 0) {
-            var texture = baker.CreateTexture3D ();
             var relativePath = path.Substring (path.IndexOf ("Assets/"));
-            AssetDatabase.CreateAsset (texture, relativePath);
+            AssetDatabase.CreateAsset (baker.targetTexture, relativePath);
         }
     }
 }

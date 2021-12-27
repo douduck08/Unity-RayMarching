@@ -30,8 +30,6 @@
     
     half4 frag(v2f i) : SV_Target {
         float raw = tex3D(_SDFTexture, float3(i.uv, _Slice)).r;
-        return half4(raw > 0.51, 0, 0, 1);
-
         float dis = raw * 2.0 - 1.0;
         float positive = frac(max(dis, 0) * 10);
         float negtaive = frac(max(-dis, 0) * 10);

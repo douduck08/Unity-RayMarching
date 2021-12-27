@@ -48,7 +48,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 468621274307382082}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -93,7 +93,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   boundsPadding: 0.1
-  targetTexture: {fileID: 0}
+  targetTexture: {fileID: 11700000, guid: 1b72a07b37335f84bbfdd145904c3058, type: 2}
   precision: 0
   resolution: 32
   enable: 1
