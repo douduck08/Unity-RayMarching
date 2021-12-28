@@ -50,7 +50,7 @@ float DistanceToTriangle (float3 p, float3 v1, float3 v2, float3 v3, float maxEd
     if (outside) {
         float d1 = length(v12 * saturate(dot(v12, p1) / dot(v12, v12)) - p1);
         float d2 = length(v23 * saturate(dot(v23, p2) / dot(v23, v23)) - p2);
-        float d3 = length(v31 * saturate(dot(v31, p3) / dot(v12, v12)) - p3);
+        float d3 = length(v31 * saturate(dot(v31, p3) / dot(v31, v31)) - p3);
         return min(min(d1, d2), d3);
     } else
     {
