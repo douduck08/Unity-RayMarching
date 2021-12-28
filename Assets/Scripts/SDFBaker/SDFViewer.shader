@@ -1,11 +1,10 @@
 ﻿Shader "Hidden/SDF Viewer" {
     Properties {
-        _SDFTexture("SDF Volume", 3D) = "white" {}
-        _Slice("Depth", Range(0, 1)) = 0.5
+        // _SDFTexture("SDF Volume", 3D) = "white" {}
+        // _Slice("Depth", Range(0, 1)) = 0.5
     }
 
     CGINCLUDE
-
     #include "UnityCG.cginc"
 
     struct appdata {
@@ -35,7 +34,6 @@
         float negtaive = frac(max(-dis, 0) * 10);
         return half4(positive, 0, negtaive, 1);
     }
-
     ENDCG
 
     SubShader {

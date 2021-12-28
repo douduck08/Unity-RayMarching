@@ -11,7 +11,8 @@ public class SDFBaker : MonoBehaviour {
         _16 = 16,
         _32 = 32,
         _64 = 64,
-        _128 = 128
+        _128 = 128,
+        _256 = 256
     }
 
     public enum Precision {
