@@ -11,6 +11,7 @@ public class SDFBaker : MonoBehaviour {
         _16 = 16,
         _32 = 32,
         _64 = 64,
+        _128 = 128
     }
 
     public enum Precision {
@@ -18,10 +19,17 @@ public class SDFBaker : MonoBehaviour {
         Float
     }
 
+    public enum BakeMethod {
+        CPUBruteForce,
+        GPUBruteForce,
+        GPUJumpFloodingAlgorithm
+    }
+
     [Header ("Bake Settings")]
     public float boundsPadding = 0.1f;
     public Resolution resolution = Resolution._32;
     public Precision precision = Precision.Half;
+    public BakeMethod bakeMethod = BakeMethod.GPUBruteForce;
     public Texture3D targetTexture;
 
     [Header ("SDF Viewer")]
@@ -30,6 +38,7 @@ public class SDFBaker : MonoBehaviour {
 
     static Mesh quadMesh;
     [SerializeField, HideInInspector] Material viewerMaterial;
+    [SerializeField] ComputeShader bruteForceCS;
 
     TextureFormat ParseTextureFormat () {
         switch (precision) {
@@ -60,20 +69,35 @@ public class SDFBaker : MonoBehaviour {
             targetTexture = CreateTexture3D ();
         } else {
             if (targetTexture.width != targetTexture.height || targetTexture.width != targetTexture.depth || targetTexture.height != targetTexture.depth) {
-                Debug.Log ("SDFBaker: Target texture is equilateral. Created a new instance.");
+                Debug.LogFormat ("SDFBaker '{0}': Target texture is equilateral. Created a new instance.", gameObject.name);
                 targetTexture = CreateTexture3D ();
             } else if (targetTexture.width != resolution) {
-                Debug.Log ("SDFBaker: Target texture resolition is not matched. Created a new instance.");
+                Debug.LogFormat ("SDFBaker '{0}': Target texture resolition is not matched. Created a new instance.", gameObject.name);
                 targetTexture = CreateTexture3D ();
             } else if (targetTexture.format != ParseTextureFormat ()) {
-                Debug.Log ("SDFBaker: Target texture format is not matched. Created a new instance.");
+                Debug.LogFormat ("SDFBaker '{0}': Target texture format is not matched. Created a new instance.", gameObject.name);
                 targetTexture = CreateTexture3D ();
             }
         }
 
-        var distances = CpuBruteForce (resolution);
-        targetTexture.SetPixels (distances.Select (d => new Color ((d + 1.0f) * 0.5f, 0f, 0f)).ToArray ());
-        targetTexture.Apply ();
+        if (bakeMethod == BakeMethod.CPUBruteForce) {
+            var t = System.DateTime.Now;
+            var distances = CpuBruteForce (resolution);
+            Debug.LogFormat ("SDFBaker '{0}': CPU Brute Force, spent time = {1:0.000}s", gameObject.name, (System.DateTime.Now - t).TotalSeconds);
+            targetTexture.SetPixels (distances.Select (d => new Color ((d + 1.0f) * 0.5f, 0f, 0f)).ToArray ());
+            targetTexture.Apply ();
+        }
+        if (bakeMethod == BakeMethod.GPUBruteForce) {
+            var t = System.DateTime.Now;
+            var distances = GpuBruteForce (resolution);
+            Debug.LogFormat ("SDFBaker '{0}': GPU Brute Force, spent time = {1:0.000}s", gameObject.name, (System.DateTime.Now - t).TotalSeconds);
+            targetTexture.SetPixels (distances.Select (d => new Color ((d + 1.0f) * 0.5f, 0f, 0f)).ToArray ());
+            targetTexture.Apply ();
+        }
+        if (bakeMethod == BakeMethod.GPUJumpFloodingAlgorithm) {
+            var t = System.DateTime.Now;
+            Debug.LogFormat ("SDFBaker '{0}': GPU Jump Flooding Algorithm, spent time = {1:0.000}s", gameObject.name, (System.DateTime.Now - t).TotalSeconds);
+        }
     }
 
     float[] CpuBruteForce (int resolution) {
@@ -83,9 +107,9 @@ public class SDFBaker : MonoBehaviour {
         var indices = mesh.GetIndices (0);
         var bounds = mesh.bounds;
         bounds.size = bounds.size + Vector3.one * boundsPadding;
-        var maxEdge = Mathf.Max (bounds.size.x, bounds.size.y, bounds.size.z);
 
         var distances = new float[resolution * resolution * resolution];
+        var maxEdge = Mathf.Max (bounds.size.x, bounds.size.y, bounds.size.z);
         var rayDirection = new Vector3 (Random.Range (0f, 1f), Random.Range (0f, 1f), Random.Range (0f, 1f));
         for (int z = 0, index = 0; z < resolution; z++) {
             for (int y = 0; y < resolution; y++) {
@@ -111,6 +135,41 @@ public class SDFBaker : MonoBehaviour {
                 }
             }
         }
+        return distances;
+    }
+
+    float[] GpuBruteForce (int resolution) {
+        var meshFiler = GetComponent<MeshFilter> ();
+        var mesh = meshFiler.sharedMesh;
+        var vertices = mesh.vertices;
+        var indices = mesh.GetIndices (0);
+        var bounds = mesh.bounds;
+        bounds.size = bounds.size + Vector3.one * boundsPadding;
+
+        var verticesBuffer = new ComputeBuffer (vertices.Length, sizeof (float) * 3, ComputeBufferType.Default);
+        var indicesBuffer = new ComputeBuffer (indices.Length, sizeof (int), ComputeBufferType.Default);
+        var distancesBuffer = new ComputeBuffer (resolution * resolution * resolution, sizeof (float), ComputeBufferType.Default);
+        verticesBuffer.SetData (vertices);
+        indicesBuffer.SetData (indices);
+
+        bruteForceCS.SetBuffer (0, "_Vertices", verticesBuffer);
+        bruteForceCS.SetBuffer (0, "_Indices", indicesBuffer);
+        bruteForceCS.SetBuffer (0, "_Distances", distancesBuffer);
+        bruteForceCS.SetInt ("_IndexCount", indices.Length);
+        bruteForceCS.SetInt ("_Resolution", resolution);
+        bruteForceCS.SetVector ("_BoundMin", bounds.min);
+        bruteForceCS.SetVector ("_BoundSize", bounds.size);
+        bruteForceCS.SetVector ("_RayDirection", new Vector3 (Random.Range (0f, 1f), Random.Range (0f, 1f), Random.Range (0f, 1f)));
+
+        const int THREAD_GROUP_SIZE = 4;
+        bruteForceCS.Dispatch (0, resolution / THREAD_GROUP_SIZE, resolution / THREAD_GROUP_SIZE, resolution / THREAD_GROUP_SIZE);
+
+        var distances = new float[resolution * resolution * resolution];
+        distancesBuffer.GetData (distances);
+
+        verticesBuffer.Release ();
+        indicesBuffer.Release ();
+        distancesBuffer.Release ();
         return distances;
     }
 

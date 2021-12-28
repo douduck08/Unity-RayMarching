@@ -93,9 +93,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   boundsPadding: 0.1
-  targetTexture: {fileID: 11700000, guid: 1b72a07b37335f84bbfdd145904c3058, type: 2}
+  resolution: 64
   precision: 0
-  resolution: 32
+  bakeMethod: 1
+  targetTexture: {fileID: 11700000, guid: 1b72a07b37335f84bbfdd145904c3058, type: 2}
   enable: 1
   slice: 0.5
   viewerMaterial: {fileID: 2100000, guid: 6a536450971abb54bb9a11dc6c5f72a3, type: 2}
+  bruteForceCS: {fileID: 7200000, guid: c729b655e4677294284d729332d32104, type: 3}

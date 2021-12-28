@@ -4,14 +4,11 @@ using UnityEngine;
 
 public class RayMarchingVolume : MonoBehaviour {
 
-    [SerializeField] SDFAsset sdfAsset;
+    [SerializeField] Texture3D sdfAsset;
 
     public Texture3D volume {
         get {
-            if (sdfAsset == null) {
-                return null;
-            }
-            return sdfAsset.texture;
+            return sdfAsset;
         }
     }
 

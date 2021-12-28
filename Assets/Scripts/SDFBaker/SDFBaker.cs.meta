@@ -6,6 +6,7 @@ MonoImporter:
   defaultReferences:
   - targetTexture: {instanceID: 0}
   - viewerMaterial: {fileID: 2100000, guid: 6a536450971abb54bb9a11dc6c5f72a3, type: 2}
+  - bruteForceCS: {fileID: 7200000, guid: c729b655e4677294284d729332d32104, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

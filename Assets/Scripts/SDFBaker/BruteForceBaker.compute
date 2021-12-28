@@ -1,0 +1,111 @@
+﻿#pragma kernel CSMain
+
+#define THREAD_GROUP_SIZE_X 4
+#define THREAD_GROUP_SIZE_Y 4
+#define THREAD_GROUP_SIZE_Z 4
+#define FLOAT_EPSILON 1.0e-6f
+
+// Buffers
+StructuredBuffer<float3> _Vertices;
+StructuredBuffer<int> _Indices;
+RWStructuredBuffer<float> _Distances;
+
+int _IndexCount;
+int _Resolution;
+float4 _BoundMin;
+float4 _BoundSize;
+float4 _RayDirection;
+
+// Functions
+uint GetIndex (uint3 id) {
+    return id.x + _Resolution * (id.y + _Resolution * id.z);
+}
+
+float3 GetTexcoord (uint3 id) {
+    return float3(id.x, id.y, id.z) * (1.0f / _Resolution) + (0.5f / _Resolution);
+}
+
+float3 GetPosition (float3 texcoord) {
+    return _BoundMin.xyz + _BoundSize.xyz * texcoord;
+}
+
+float DistanceToTriangle (float3 p, float3 v1, float3 v2, float3 v3, float maxEdge) {
+    // Ref: https://iquilezles.org/www/articles/triangledistance/triangledistance.htm
+    float3 v12 = v2 - v1;
+    float3 v23 = v3 - v2;
+    float3 v31 = v1 - v3;
+    float3 n = cross(v12, v31);
+    if (length(n) < FLOAT_EPSILON) {
+        return maxEdge;
+    }
+
+    float3 p1 = p - v1;
+    float3 p2 = p - v2;
+    float3 p3 = p - v3;
+    bool outside =
+    sign(dot(cross(v12, n), p1)) +
+    sign(dot(cross(v23, n), p2)) +
+    sign(dot(cross(v31, n), p3)) < 2.0f;
+
+    if (outside) {
+        float d1 = length(v12 * saturate(dot(v12, p1) / dot(v12, v12)) - p1);
+        float d2 = length(v23 * saturate(dot(v23, p2) / dot(v23, v23)) - p2);
+        float d3 = length(v31 * saturate(dot(v31, p3) / dot(v12, v12)) - p3);
+        return min(min(d1, d2), d3);
+    } else
+    {
+        return abs(dot(n, p1) / length(n));
+    }
+}
+
+bool RaycastToTriangle (float3 origin, float3 direction, float3 v1, float3 v2, float3 v3) {
+    float3 v12 = v2 - v1;
+    float3 v13 = v3 - v1;
+    float3 pVec = cross(direction, v13);
+    float det = dot(pVec, v12);
+    if (abs(det) < FLOAT_EPSILON) { return false; }
+
+    float invDet = 1.0f / det;
+    float3 tVec = origin - v1;
+    float u = invDet * dot(pVec, tVec);
+    if (u < 0.0f || u > 1.0f) { return false; }
+
+    float3 qVec = cross(tVec, v12);
+    float v = invDet * dot(qVec, direction);
+    if (v < 0.0f || u + v > 1.0f) { return false; }
+
+    float t = invDet * dot(qVec, v13);
+    if (t < 0.0f) { return false; }
+
+    return true;
+}
+
+// Kernels
+[numthreads(THREAD_GROUP_SIZE_X, THREAD_GROUP_SIZE_Y, THREAD_GROUP_SIZE_Z)]
+void CSMain (
+in uint3 dispatchThreadID : SV_DispatchThreadID, // DispatchThreadID  = dot(GroupID, numthreads) + GroupThreadId;
+in uint  groupIndex       : SV_GroupIndex, // uint GroupIndex = unique index of a thread inside a group
+in uint3 groupID          : SV_GroupID, // GroupID = index for each dimension inside a ThreadGroupCount
+in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices for each dimension inside a group of the current thread
+) {
+    uint index = GetIndex(dispatchThreadID);
+    float3 texcoord = GetTexcoord(dispatchThreadID);
+    float3 samplePos = GetPosition(texcoord);
+
+    float maxEdge = max(max(_BoundSize.x, _BoundSize.y), _BoundSize.z);
+    float d = maxEdge;
+    uint intersectionCount = 0;
+    for (uint i = 0; i < _IndexCount; i += 3) {
+        float3 v1 = _Vertices[_Indices[i]];
+        float3 v2 = _Vertices[_Indices[i + 1]];
+        float3 v3 = _Vertices[_Indices[i + 2]];
+        d = min(d, DistanceToTriangle (samplePos, v1, v2, v3, maxEdge));
+        if (RaycastToTriangle (samplePos, _RayDirection.xyz, v1, v2, v3)) {
+            intersectionCount += 1;
+        }
+    }
+    if (intersectionCount % 2 == 1) {
+        d *= -1.0f;
+    }
+    _Distances[index] = clamp(d / maxEdge, -1.0f, 1.0f);
+}

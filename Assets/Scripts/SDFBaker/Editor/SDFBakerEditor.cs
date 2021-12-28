@@ -10,11 +10,14 @@ public class SDFBakerEditor : Editor {
         base.OnInspectorGUI ();
 
         var baker = target as SDFBaker;
-        // if (GUILayout.Button ("Create 3D Texture")) {
-        //     Create3DTextureAsset (baker);
-        // }
+        var disableBaking = ((int)baker.resolution >= 64) && (baker.bakeMethod == SDFBaker.BakeMethod.CPUBruteForce);
+        GUI.enabled = !disableBaking;
         if (GUILayout.Button ("Bake")) {
             baker.Bake ();
+        }
+        GUI.enabled = true;
+        if (disableBaking) {
+            EditorGUILayout.HelpBox ("Disabled CPU baking when resolution larger than 32.", MessageType.Info);
         }
         if (GUILayout.Button ("Save as Texture Asset")) {
             SaveAsTextureAsset (baker);
