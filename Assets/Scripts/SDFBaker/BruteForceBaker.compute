@@ -30,7 +30,6 @@ float3 GetPosition (float3 texcoord) {
 }
 
 float DistanceToTriangle (float3 p, float3 v1, float3 v2, float3 v3, float maxEdge) {
-    // Ref: https://iquilezles.org/www/articles/triangledistance/triangledistance.htm
     float3 v12 = v2 - v1;
     float3 v23 = v3 - v2;
     float3 v31 = v1 - v3;
