@@ -11,6 +11,7 @@ public class SDFBakerEditor : Editor {
 
         var baker = target as SDFBaker;
         var disableBaking = ((int)baker.resolution >= 64) && (baker.bakeMethod == SDFBaker.BakeMethod.CPUBruteForce);
+
         GUI.enabled = !disableBaking;
         if (GUILayout.Button ("Bake")) {
             baker.Bake ();
@@ -22,6 +23,14 @@ public class SDFBakerEditor : Editor {
         if (GUILayout.Button ("Save as Texture Asset")) {
             SaveAsTextureAsset (baker);
         }
+
+        var meshFiler = baker.GetComponent<MeshFilter> ();
+        var bounds = meshFiler.sharedMesh.bounds;
+        bounds.size = bounds.size + Vector3.one * baker.boundsPadding;
+
+        GUI.enabled = false;
+        EditorGUILayout.Vector3Field ("Volume Bounds", bounds.size);
+        GUI.enabled = true;
     }
 
     void SaveAsTextureAsset (SDFBaker baker) {

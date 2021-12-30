@@ -5,78 +5,68 @@ using UnityEngine;
 [RequireComponent (typeof (Camera))]
 public class RayMarchingCamera : MonoBehaviour {
 
-    new Camera camera;
-    Vector3[] frustumCorners = new Vector3[4];
-    Matrix4x4 frustumCornersMatrix;
+    public List<RayMarchingVolume> volumes = new List<RayMarchingVolume> ();
+
+    class CameraParameters {
+        public Camera camera;
+        public Vector3[] frustumCorners = new Vector3[4];
+        public Matrix4x4 frustumCornersMatrix;
+    }
+
+    class SceneParameters {
+    }
 
     RenderTexture result;
-    ComputeShader renderCs;
-    int renderKernal, groupX, groupY;
+    CameraParameters cameraParams = new CameraParameters ();
+    SceneParameters sceneParams = new SceneParameters ();
 
-    ComputeBuffer volumeIndexBuffer;
-    ComputeBuffer inverseMatrixBuffer;
-
-    void OnEnable () {
-        renderCs = (ComputeShader) Resources.Load ("RayMarching");
-        renderKernal = renderCs.FindKernel ("CSMain");
-
-        camera = GetComponent<Camera> ();
-        result = new RenderTexture (camera.pixelWidth, camera.pixelHeight, 0);
-        result.enableRandomWrite = true;
-        result.wrapMode = TextureWrapMode.Clamp;
-        result.Create ();
-        renderCs.SetTexture (renderKernal, "result", result);
-
-        uint x, y, z;
-        renderCs.GetKernelThreadGroupSizes (renderKernal, out x, out y, out z);
-        groupX = Mathf.CeilToInt (camera.pixelWidth / x);
-        groupY = Mathf.CeilToInt (camera.pixelHeight / y);
-
-        volumeIndexBuffer = new ComputeBuffer (RayMarchingManager.MAX_VOLUME_INSTANCE_NUMBER, 4);
-        inverseMatrixBuffer = new ComputeBuffer (RayMarchingManager.MAX_VOLUME_INSTANCE_NUMBER, 4 * 16);
-
-        renderCs.SetBuffer (renderKernal, "volumeIndexBuffer", volumeIndexBuffer);
-        renderCs.SetBuffer (renderKernal, "inverseMatrixBuffer", inverseMatrixBuffer);
-    }
-
-    void OnDisable () {
-        if (volumeIndexBuffer != null) volumeIndexBuffer.Release ();
-        if (inverseMatrixBuffer != null) inverseMatrixBuffer.Release ();
-    }
+    [Header ("Resources")]
+    [SerializeField] ComputeShader renderingCS;
 
     void OnRenderImage (RenderTexture src, RenderTexture dest) {
-        UpdateKernalParameters ();
-        UpdateComputeBuffer ();
+        var descriptor = src.descriptor;
+        descriptor.useMipMap = false;
+        descriptor.enableRandomWrite = true;
+        var result = RenderTexture.GetTemporary (descriptor);
+        result.Create ();
 
-        renderCs.Dispatch (renderKernal, groupX, groupY, 1);
+        renderingCS.SetTexture (0, "_Result", result);
+        UpdateCameraParameters (renderingCS);
+        UpdateSceneParameters (renderingCS);
+
+        const int THREAD_GROUP_SIZE = 8;
+        renderingCS.Dispatch (0, Mathf.CeilToInt (descriptor.width / THREAD_GROUP_SIZE), Mathf.CeilToInt (descriptor.height / THREAD_GROUP_SIZE), 1);
         Graphics.Blit (result, dest);
+
+        RenderTexture.ReleaseTemporary (result);
     }
 
-    void UpdateKernalParameters () {
-        camera.CalculateFrustumCorners (new Rect (0, 0, 1, 1), camera.farClipPlane, Camera.MonoOrStereoscopicEye.Mono, frustumCorners);
-        frustumCornersMatrix.SetRow (0, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (frustumCorners[0])));
-        frustumCornersMatrix.SetRow (1, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (frustumCorners[1])));
-        frustumCornersMatrix.SetRow (2, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (frustumCorners[2])));
-        frustumCornersMatrix.SetRow (3, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (frustumCorners[3])));
-        renderCs.SetMatrix ("cameraFrustumCorners", frustumCornersMatrix);
+    void UpdateCameraParameters (ComputeShader renderingCS) {
+        if (cameraParams.camera == null) {
+            cameraParams.camera = GetComponent<Camera> ();
+        }
+
+        var camera = cameraParams.camera;
+        var cameraPosition = camera.transform.position;
+        var nearClip = camera.nearClipPlane;
+        var farClip = camera.farClipPlane;
+
+        camera.CalculateFrustumCorners (new Rect (0, 0, 1, 1), farClip, Camera.MonoOrStereoscopicEye.Mono, cameraParams.frustumCorners);
+        cameraParams.frustumCornersMatrix.SetRow (0, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (cameraParams.frustumCorners[0])));
+        cameraParams.frustumCornersMatrix.SetRow (1, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (cameraParams.frustumCorners[1])));
+        cameraParams.frustumCornersMatrix.SetRow (2, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (cameraParams.frustumCorners[2])));
+        cameraParams.frustumCornersMatrix.SetRow (3, transform.localToWorldMatrix.MultiplyVector (Vector3.Normalize (cameraParams.frustumCorners[3])));
+
+        renderingCS.SetVector ("_CameraPosition", cameraPosition);
+        renderingCS.SetVector ("_CameraParams", new Vector4 (nearClip, farClip));
+        renderingCS.SetMatrix ("_FrustumCorners", cameraParams.frustumCornersMatrix);
     }
 
-    void UpdateComputeBuffer () {
-        if (RayMarchingManager.instance.RebuildDataArrayIfNeeded ()) {
-            var volumeIndexArray = RayMarchingManager.instance.volumeIndexArray;
-            var inverseMatrixArray = RayMarchingManager.instance.inverseMatrixArray;
-            volumeIndexBuffer.SetData (volumeIndexArray);
-            inverseMatrixBuffer.SetData (inverseMatrixArray);
-            renderCs.SetInt ("volumeInstanceNumber", volumeIndexArray.Length);
-
-            for (int i = 0; i < RayMarchingManager.MAX_VOLUME_TEXTURE_NUMBER; i++) {
-                var texture = RayMarchingManager.instance.GetSdfVolumeTexture (i);
-                if (texture != null) {
-                    renderCs.SetTexture (renderKernal, "sdfVolumeTexture" + i.ToString (), texture);
-                } else {
-                    renderCs.SetTexture (renderKernal, "sdfVolumeTexture" + i.ToString (), RayMarchingManager.instance.emptyVolume);
-                }
-            }
+    void UpdateSceneParameters (ComputeShader renderingCS) {
+        if (volumes.Count > 0) {
+            // test
+            renderingCS.SetMatrix ("_InverseTransform", volumes[0].inverseMatrix);
+            renderingCS.SetVector ("_Scale", volumes[0].scale);
         }
     }
 }

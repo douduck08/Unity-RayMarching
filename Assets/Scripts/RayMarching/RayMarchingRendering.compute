@@ -1,0 +1,88 @@
+﻿#pragma kernel CSMain
+
+#define THREAD_GROUP_SIZE_X 8
+#define THREAD_GROUP_SIZE_Y 8
+#define THREAD_GROUP_SIZE_Z 1
+#define RAY_MARCHING_PRECISION 1.0e-3f
+#define MAX_STEP 512
+
+// Buffers
+RWTexture2D<float4> _Result;
+
+float4 _CameraPosition;
+float4 _CameraParams;
+float4x4 _FrustumCorners;
+
+// test
+float4x4 _InverseTransform;
+float4 _Scale;
+
+// Functions
+float2 GetTexcoord (uint3 id, uint width, uint height) {
+    float2 texelSize = rcp(float2(width, height));
+    float2 texcoord = float2(id.xy) + 0.5;
+    texcoord *= texelSize;
+    return texcoord;
+}
+
+float3 GetRayDirection (float2 uv) {
+    // world space direction
+    float3 direction = _FrustumCorners[0].xyz +
+    (_FrustumCorners[3].xyz - _FrustumCorners[0].xyz) * uv.x +
+    (_FrustumCorners[1].xyz - _FrustumCorners[0].xyz) * uv.y;
+    return normalize(direction);
+}
+
+float SdBox(float3 position, float3 center, float3 size)
+{
+    float3 q = abs(position - center) - size;
+    return length(max(q, 0.0)) + min(max(max(q.x, q.y) ,q.z), 0.0);
+}
+
+float SampleDistance(float3 position) {
+    float3 p = mul(_InverseTransform, float4(position, 1.0)).xyz;
+    float d = SdBox(p / _Scale, 0.0, 1.0) * min(min(_Scale.x, _Scale.y), _Scale.z);
+    return d;
+}
+
+// Kernels
+[numthreads(THREAD_GROUP_SIZE_X, THREAD_GROUP_SIZE_Y, THREAD_GROUP_SIZE_Z)]
+void CSMain (
+in uint3 dispatchThreadID : SV_DispatchThreadID, // DispatchThreadID  = dot(GroupID, numthreads) + GroupThreadId;
+in uint  groupIndex       : SV_GroupIndex, // uint GroupIndex = unique index of a thread inside a group
+in uint3 groupID          : SV_GroupID, // GroupID = index for each dimension inside a ThreadGroupCount
+in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices for each dimension inside a group of the current thread
+) {
+    uint width, height;
+    _Result.GetDimensions(width, height);
+
+    if (dispatchThreadID.x >= width || dispatchThreadID.y >= height) { return; }
+
+    float2 uv = GetTexcoord(dispatchThreadID, width, height);
+    float3 direction = GetRayDirection(uv);
+    float3 origin = _CameraPosition + direction * _CameraParams.x;
+    
+    float max_t = _CameraParams.y - _CameraParams.x;
+    float t = 0.0;
+    float3 color = 0.0;
+    for(uint i = 0; i < MAX_STEP; ++i) {
+        if (t > max_t) {
+            color.r = 1.0;
+            break;
+        }
+
+        float3 position = origin + direction * t;
+        float distance = SampleDistance(position);
+        if (distance < RAY_MARCHING_PRECISION && distance > -RAY_MARCHING_PRECISION) {
+            color.b = (float)i / MAX_STEP;
+            break;
+        }
+        else {
+            t += distance;
+        }
+    }
+
+    uint3 id = dispatchThreadID;
+    _Result[id.xy] = float4(color.rgb, 1.0f);
+}
+

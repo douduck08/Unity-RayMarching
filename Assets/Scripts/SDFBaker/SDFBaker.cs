@@ -37,9 +37,10 @@ public class SDFBaker : MonoBehaviour {
     public bool enable = false;
     [Range (0f, 1f)] public float slice = 0.5f;
 
-    static Mesh quadMesh;
+    [Header ("Resources")]
     [SerializeField, HideInInspector] Material viewerMaterial;
-    [SerializeField] ComputeShader bruteForceCS;
+    [SerializeField, HideInInspector] ComputeShader bruteForceCS;
+    static Mesh quadMesh;
 
     TextureFormat ParseTextureFormat () {
         switch (precision) {

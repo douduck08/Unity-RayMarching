@@ -1,8 +1,19 @@
+### Features
+SDF Baker
+* Bake single mesh info to a Texture3D asset.
+* Has supported 2 methods: `CPUBruteForce` and `GPUBruteForce`.
+* Method `GPUJumpFloodingAlgorithm` is in research.
+
+Ray Marching
+* Not support hierarchy tranform of volumes.
+
 ### References 
 #### SDF Rendering
 * SIGNED DISTANCE FIELD RENDERING JOURNEY
 https://kosmonautblog.wordpress.com/2017/05/01/signed-distance-field-rendering-journey-pt-1/
 https://kosmonautblog.wordpress.com/2017/05/09/signed-distance-field-rendering-journey-pt-2/
+* Ray Marching and Signed Distance Functions
+http://jamie-wong.com/2016/07/15/ray-marching-signed-distance-functions/#model-transformations
 * soft shadows in raymarched SDFs
 https://iquilezles.org/www/articles/rmshadows/rmshadows.htm
 

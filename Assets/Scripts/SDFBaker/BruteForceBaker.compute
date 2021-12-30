@@ -10,8 +10,8 @@ StructuredBuffer<float3> _Vertices;
 StructuredBuffer<int> _Indices;
 RWStructuredBuffer<float> _Distances;
 
-int _IndexCount;
-int _Resolution;
+uint _IndexCount;
+uint _Resolution;
 float4 _BoundMin;
 float4 _BoundSize;
 float4 _RayDirection;
