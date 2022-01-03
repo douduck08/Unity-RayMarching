@@ -1,21 +1,43 @@
 ﻿#pragma kernel CSMain
+#pragma kernel CSMain DEBUG_DISTANCE
+#pragma kernel CSMain DEBUG_NORMAL
+#include "UnityCG.cginc"
 
 #define THREAD_GROUP_SIZE_X 8
 #define THREAD_GROUP_SIZE_Y 8
 #define THREAD_GROUP_SIZE_Z 1
 #define RAY_MARCHING_PRECISION 1.0e-3f
-#define MAX_STEP 512
+#define MAX_STEP 1024
+#define MAX_INSTANCE_NUMBER 64
 
 // Buffers
+struct InstanceData {
+    float4x4 transfom;
+    float4x4 inverseTransfom;
+    float3 scale;
+    uint index;
+};
+
 RWTexture2D<float4> _Result;
+StructuredBuffer<InstanceData> _InstanceData;
+uint _InstanceCount;
+
+Texture3D<float4> _Volume0;
+Texture3D<float4> _Volume1;
+Texture3D<float4> _Volume2;
+Texture3D<float4> _Volume3;
+Texture3D<float4> _Volume4;
+Texture3D<float4> _Volume5;
+Texture3D<float4> _Volume6;
+Texture3D<float4> _Volume7;
+SamplerState linearClampSampler;
 
 float4 _CameraPosition;
 float4 _CameraParams;
 float4x4 _FrustumCorners;
-
-// test
-float4x4 _InverseTransform;
-float4 _Scale;
+float3 _SkyColor;
+float _GroundLevel;
+float3 _Light;
 
 // Functions
 float2 GetTexcoord (uint3 id, uint width, uint height) {
@@ -33,16 +55,114 @@ float3 GetRayDirection (float2 uv) {
     return normalize(direction);
 }
 
+float RayGroundIntersect(float3 origin, float3 direction, float height)
+{
+    const float3 n = float3(0.0, 1.0, 0.0);
+    return -(dot(origin, n) - height) / dot(direction, n);
+}
+
 float SdBox(float3 position, float3 center, float3 size)
 {
     float3 q = abs(position - center) - size;
     return length(max(q, 0.0)) + min(max(max(q.x, q.y) ,q.z), 0.0);
 }
 
-float SampleDistance(float3 position) {
-    float3 p = mul(_InverseTransform, float4(position, 1.0)).xyz;
-    float d = SdBox(p / _Scale, 0.0, 1.0) * min(min(_Scale.x, _Scale.y), _Scale.z);
-    return d;
+float SampleSdfVolume(uint index, float3 position) {
+    switch(index) {
+        case 0:
+        return _Volume0.SampleLevel(linearClampSampler, position + 0.5, 0) * 2.0 - 1.0;
+        case 1:
+        return _Volume1.SampleLevel(linearClampSampler, position + 0.5, 0) * 2.0 - 1.0;
+        case 2:
+        return _Volume2.SampleLevel(linearClampSampler, position + 0.5, 0) * 2.0 - 1.0;
+        case 3:
+        return _Volume3.SampleLevel(linearClampSampler, position + 0.5, 0) * 2.0 - 1.0;
+        case 4:
+        return _Volume4.SampleLevel(linearClampSampler, position + 0.5, 0) * 2.0 - 1.0;
+        case 5:
+        return _Volume5.SampleLevel(linearClampSampler, position + 0.5, 0) * 2.0 - 1.0;
+        case 6:
+        return _Volume6.SampleLevel(linearClampSampler, position + 0.5, 0) * 2.0 - 1.0;
+        case 7:
+        return _Volume7.SampleLevel(linearClampSampler, position + 0.5, 0) * 2.0 - 1.0;
+        default:
+        return 0.0;
+    }
+}
+
+float GetSdfVolumeDimensions(uint index) {
+    uint3 dims = 0;
+    switch(index) {
+        case 0:
+        _Volume0.GetDimensions(dims.x, dims.y, dims.z);
+        break;
+        case 1:
+        _Volume1.GetDimensions(dims.x, dims.y, dims.z);
+        break;
+        case 2:
+        _Volume2.GetDimensions(dims.x, dims.y, dims.z);
+        break;
+        case 3:
+        _Volume3.GetDimensions(dims.x, dims.y, dims.z);
+        break;
+        case 4:
+        _Volume4.GetDimensions(dims.x, dims.y, dims.z);
+        break;
+        case 5:
+        _Volume5.GetDimensions(dims.x, dims.y, dims.z);
+        break;
+        case 6:
+        _Volume6.GetDimensions(dims.x, dims.y, dims.z);
+        break;
+        case 7:
+        _Volume7.GetDimensions(dims.x, dims.y, dims.z);
+        break;
+    }
+    return dims;
+}
+
+float SampleDistance(uint instanceIndex, float3 position) {
+    InstanceData instanceData = _InstanceData[instanceIndex];
+    float3 p = mul(instanceData.inverseTransfom, float4(position, 1.0)).xyz / instanceData.scale;
+    float d1 = SdBox(p, 0.0, 0.5);
+    float d2 = SampleSdfVolume(instanceData.index, p);
+    float s = min(min(instanceData.scale.x, instanceData.scale.y), instanceData.scale.z);
+    if (d1 < 0.0) {
+        return d2 * s;
+    }
+    else {
+        return (d1 + d2) * s;
+    }
+}
+
+float SampleDistanceScene(float3 position, out uint instanceIndex) {
+    float minDistance = 1.0e7f;
+    instanceIndex = MAX_INSTANCE_NUMBER;
+    for (uint i = 0; i < _InstanceCount; ++i) {
+        float d = SampleDistance(i, position);
+        if (d < minDistance) {
+            minDistance = d;
+            instanceIndex = i;
+        }
+    }
+    return minDistance;
+}
+
+float3 SampleNormal(uint instanceIndex, float3 position) {
+    InstanceData instanceData = _InstanceData[instanceIndex];
+    uint index = instanceData.index;
+    float sampleSize = 1.0 / GetSdfVolumeDimensions(index).x;
+    float3 p = mul(instanceData.inverseTransfom, float4(position, 1.0)).xyz / instanceData.scale;
+    float x = SampleSdfVolume(index, float3(p.x + sampleSize, p.y, p.z)) - SampleSdfVolume(index, float3(p.x - sampleSize, p.y, p.z));
+    float y = SampleSdfVolume(index, float3(p.x, p.y + sampleSize, p.z)) - SampleSdfVolume(index, float3(p.x, p.y - sampleSize, p.z));
+    float z = SampleSdfVolume(index, float3(p.x, p.y, p.z + sampleSize)) - SampleSdfVolume(index, float3(p.x, p.y, p.z - sampleSize));
+    float3 n = mul((float3x3)instanceData.transfom, float3(x, y, z));
+    return normalize(n);
+}
+
+float3 Shading(float3 color, float3 normal) {
+    float nl = max(0, dot(normal, _Light));
+    return color * nl;
 }
 
 // Kernels
@@ -62,19 +182,30 @@ in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices fo
     float3 direction = GetRayDirection(uv);
     float3 origin = _CameraPosition + direction * _CameraParams.x;
     
-    float max_t = _CameraParams.y - _CameraParams.x;
-    float t = 0.0;
     float3 color = 0.0;
-    for(uint i = 0; i < MAX_STEP; ++i) {
+    float3 normal = 0.0;
+    float max_t = RayGroundIntersect(origin, direction, _GroundLevel);
+    if (max_t < 0.0) {
+        color = _SkyColor; // sky
+        max_t = _CameraParams.y - _CameraParams.x;
+    }
+    else {
+        color = float3(1.0, 1.0, 1.0); // ground
+        normal = float3(0.0, 1.0, 0.0);
+    }
+
+    float t = 0.0;
+    uint i , instanceIndex;
+    for (i = 0; i < MAX_STEP; ++i) {
         if (t > max_t) {
-            color.r = 1.0;
             break;
         }
 
         float3 position = origin + direction * t;
-        float distance = SampleDistance(position);
+        float distance = SampleDistanceScene(position, /*out*/ instanceIndex);
         if (distance < RAY_MARCHING_PRECISION && distance > -RAY_MARCHING_PRECISION) {
-            color.b = (float)i / MAX_STEP;
+            color = float3(1.0, 1.0, 1.0);
+            normal = SampleNormal(instanceIndex, position);
             break;
         }
         else {
@@ -82,7 +213,19 @@ in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices fo
         }
     }
 
-    uint3 id = dispatchThreadID;
-    _Result[id.xy] = float4(color.rgb, 1.0f);
+#ifdef DEBUG_DISTANCE
+    if (t > max_t && normal.y > 0.0) {
+        float distance = SampleDistanceScene(origin + direction * max_t, instanceIndex);
+        color = frac(distance * 10.0);
+    }
+#elif defined DEBUG_NORMAL
+    if (any(normal)){
+        color = normal * 0.5 + 0.5;
+    }
+#else
+    color = Shading(color, normal);
+#endif
+
+    _Result[dispatchThreadID.xy] = float4(color.rgb, 1.0f);
 }
 

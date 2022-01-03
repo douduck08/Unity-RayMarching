@@ -5,7 +5,11 @@ using UnityEngine;
 [RequireComponent (typeof (Camera))]
 public class RayMarchingCamera : MonoBehaviour {
 
-    public List<RayMarchingVolume> volumes = new List<RayMarchingVolume> ();
+    [System.Serializable]
+    class SceneParameters {
+        public Color skyColor;
+        public float groundLevel;
+    }
 
     class CameraParameters {
         public Camera camera;
@@ -13,12 +17,31 @@ public class RayMarchingCamera : MonoBehaviour {
         public Matrix4x4 frustumCornersMatrix;
     }
 
-    class SceneParameters {
+    struct InstanceData {
+        public Matrix4x4 transform;
+        public Matrix4x4 inverseTransform;
+        public Vector3 scale;
+        public uint index;
     }
 
-    RenderTexture result;
+    public enum DebugMode {
+        Off = 0,
+        Distance = 1,
+        Normal = 2
+    }
+
+    const int MAX_SDF_TEXTURE_NUMBER = 8;
+    const int MAX_INSTANCE_NUMBER = 64;
+    const int INSTANCE_DATA_SIZE = sizeof (float) * 16 + sizeof (float) * 16 + sizeof (float) * 3 + sizeof (uint);
+
+    [SerializeField] List<RayMarchingVolume> volumes = new List<RayMarchingVolume> ();
+    [SerializeField] SceneParameters sceneParams = new SceneParameters ();
+    [SerializeField] Light light;
+    [SerializeField] DebugMode debugMode = DebugMode.Off;
+
     CameraParameters cameraParams = new CameraParameters ();
-    SceneParameters sceneParams = new SceneParameters ();
+    RenderTexture result;
+    ComputeBuffer instanceDataBuffer;
 
     [Header ("Resources")]
     [SerializeField] ComputeShader renderingCS;
@@ -30,15 +53,33 @@ public class RayMarchingCamera : MonoBehaviour {
         var result = RenderTexture.GetTemporary (descriptor);
         result.Create ();
 
-        renderingCS.SetTexture (0, "_Result", result);
+        var kernal = renderingCS.FindKernel ("CSMain");
+        if (kernal == -1) {
+            return;
+        }
+
+        if (instanceDataBuffer == null) {
+            instanceDataBuffer = new ComputeBuffer (MAX_INSTANCE_NUMBER, INSTANCE_DATA_SIZE, ComputeBufferType.Default);
+        }
+
+        kernal += (int)debugMode;
+        renderingCS.SetTexture (kernal, "_Result", result);
         UpdateCameraParameters (renderingCS);
         UpdateSceneParameters (renderingCS);
+        UpdateInstanceData (renderingCS, kernal);
 
         const int THREAD_GROUP_SIZE = 8;
-        renderingCS.Dispatch (0, Mathf.CeilToInt (descriptor.width / THREAD_GROUP_SIZE), Mathf.CeilToInt (descriptor.height / THREAD_GROUP_SIZE), 1);
+        renderingCS.Dispatch (kernal, Mathf.CeilToInt (descriptor.width / THREAD_GROUP_SIZE), Mathf.CeilToInt (descriptor.height / THREAD_GROUP_SIZE), 1);
         Graphics.Blit (result, dest);
 
         RenderTexture.ReleaseTemporary (result);
+    }
+
+    void OnDestroy () {
+        if (instanceDataBuffer != null) {
+            instanceDataBuffer.Release ();
+            instanceDataBuffer = null;
+        }
     }
 
     void UpdateCameraParameters (ComputeShader renderingCS) {
@@ -63,10 +104,38 @@ public class RayMarchingCamera : MonoBehaviour {
     }
 
     void UpdateSceneParameters (ComputeShader renderingCS) {
+        renderingCS.SetVector ("_SkyColor", sceneParams.skyColor);
+        renderingCS.SetFloat ("_GroundLevel", sceneParams.groundLevel);
+        renderingCS.SetVector ("_Light", light.transform.forward);
+    }
+
+    void UpdateInstanceData (ComputeShader renderingCS, int kernal) {
         if (volumes.Count > 0) {
-            // test
-            renderingCS.SetMatrix ("_InverseTransform", volumes[0].inverseMatrix);
-            renderingCS.SetVector ("_Scale", volumes[0].scale);
+            var instanceCount = Mathf.Min (volumes.Count, MAX_INSTANCE_NUMBER);
+            List<Texture3D> volumeTextures = new List<Texture3D> ();
+            InstanceData[] instanceDatas = new InstanceData[instanceCount];
+            for (int i = 0; i < instanceCount; i++) {
+                var index = volumeTextures.FindIndex (t => t == volumes[i].sdfTexture);
+                if (index == -1) {
+                    index = volumeTextures.Count;
+                    volumeTextures.Add (volumes[i].sdfTexture);
+                }
+                instanceDatas[i].transform = volumes[i].matrix;
+                instanceDatas[i].inverseTransform = volumes[i].inverseMatrix;
+                instanceDatas[i].scale = volumes[i].scale;
+                instanceDatas[i].index = (uint)index;
+            }
+
+            instanceDataBuffer.SetData (instanceDatas);
+            renderingCS.SetBuffer (kernal, "_InstanceData", instanceDataBuffer);
+            renderingCS.SetInt ("_InstanceCount", instanceCount);
+            for (int i = 0; i < MAX_SDF_TEXTURE_NUMBER; i++) {
+                if (i < volumeTextures.Count) {
+                    renderingCS.SetTexture (kernal, "_Volume" + i, volumeTextures[i]);
+                } else {
+                    renderingCS.SetTexture (kernal, "_Volume" + i, volumeTextures[volumeTextures.Count - 1]);
+                }
+            }
         }
     }
 }

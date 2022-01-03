@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 468621274309645698}
   - component: {fileID: 4896668020679954506}
   m_Layer: 0
-  m_Name: Dog
+  m_Name: DogBaker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -93,7 +93,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   boundsPadding: 0.1
-  resolution: 64
+  resolution: 128
   precision: 0
   bakeMethod: 1
   targetTexture: {fileID: 11700000, guid: 1b72a07b37335f84bbfdd145904c3058, type: 2}
