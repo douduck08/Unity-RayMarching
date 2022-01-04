@@ -7,8 +7,11 @@ public class RayMarchingCamera : MonoBehaviour {
 
     [System.Serializable]
     class SceneParameters {
-        public Color skyColor;
+        [ColorUsage (false)] public Color skyColor;
+        [ColorUsage (false)] public Color ambientColor;
         public float groundLevel;
+        [ColorUsage (false)] public Color groundColor;
+        public Light light;
     }
 
     class CameraParameters {
@@ -22,6 +25,7 @@ public class RayMarchingCamera : MonoBehaviour {
         public Matrix4x4 inverseTransform;
         public Vector3 scale;
         public uint index;
+        public Color color;
     }
 
     public enum DebugMode {
@@ -32,11 +36,10 @@ public class RayMarchingCamera : MonoBehaviour {
 
     const int MAX_SDF_TEXTURE_NUMBER = 8;
     const int MAX_INSTANCE_NUMBER = 64;
-    const int INSTANCE_DATA_SIZE = sizeof (float) * 16 + sizeof (float) * 16 + sizeof (float) * 3 + sizeof (uint);
+    const int INSTANCE_DATA_SIZE = sizeof (float) * 16 + sizeof (float) * 16 + sizeof (float) * 3 + sizeof (uint) + sizeof (float) * 4;
 
     [SerializeField] List<RayMarchingVolume> volumes = new List<RayMarchingVolume> ();
     [SerializeField] SceneParameters sceneParams = new SceneParameters ();
-    [SerializeField] Light light;
     [SerializeField] DebugMode debugMode = DebugMode.Off;
 
     CameraParameters cameraParams = new CameraParameters ();
@@ -105,8 +108,19 @@ public class RayMarchingCamera : MonoBehaviour {
 
     void UpdateSceneParameters (ComputeShader renderingCS) {
         renderingCS.SetVector ("_SkyColor", sceneParams.skyColor);
+        renderingCS.SetVector ("_AmbientColor", sceneParams.ambientColor);
         renderingCS.SetFloat ("_GroundLevel", sceneParams.groundLevel);
-        renderingCS.SetVector ("_Light", light.transform.forward);
+        renderingCS.SetVector ("_GroundColor", sceneParams.groundColor);
+        renderingCS.SetVector ("_LightColor", sceneParams.light.color * sceneParams.light.intensity);
+        if (sceneParams.light.type == LightType.Directional) {
+            Vector4 light = -sceneParams.light.transform.forward;
+            light.w = 0;
+            renderingCS.SetVector ("_LightPosition", light);
+        } else {
+            Vector4 light = sceneParams.light.transform.position;
+            light.w = 1;
+            renderingCS.SetVector ("_LightPosition", light);
+        }
     }
 
     void UpdateInstanceData (ComputeShader renderingCS, int kernal) {
@@ -124,6 +138,7 @@ public class RayMarchingCamera : MonoBehaviour {
                 instanceDatas[i].inverseTransform = volumes[i].inverseMatrix;
                 instanceDatas[i].scale = volumes[i].scale;
                 instanceDatas[i].index = (uint)index;
+                instanceDatas[i].color = volumes[i].color;
             }
 
             instanceDataBuffer.SetData (instanceDatas);

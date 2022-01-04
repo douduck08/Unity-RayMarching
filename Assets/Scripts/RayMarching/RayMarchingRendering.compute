@@ -16,6 +16,7 @@ struct InstanceData {
     float4x4 inverseTransfom;
     float3 scale;
     uint index;
+    float4 color;
 };
 
 RWTexture2D<float4> _Result;
@@ -36,8 +37,11 @@ float4 _CameraPosition;
 float4 _CameraParams;
 float4x4 _FrustumCorners;
 float3 _SkyColor;
+float3 _AmbientColor;
 float _GroundLevel;
-float3 _Light;
+float3 _GroundColor;
+float3 _LightColor;
+float4 _LightPosition;
 
 // Functions
 float2 GetTexcoord (uint3 id, uint width, uint height) {
@@ -149,20 +153,27 @@ float SampleDistanceScene(float3 position, out uint instanceIndex) {
 }
 
 float3 SampleNormal(uint instanceIndex, float3 position) {
+    // ref: https://www.iquilezles.org/www/articles/normalsSDF/normalsSDF.htm
     InstanceData instanceData = _InstanceData[instanceIndex];
     uint index = instanceData.index;
-    float sampleSize = 1.0 / GetSdfVolumeDimensions(index).x;
     float3 p = mul(instanceData.inverseTransfom, float4(position, 1.0)).xyz / instanceData.scale;
-    float x = SampleSdfVolume(index, float3(p.x + sampleSize, p.y, p.z)) - SampleSdfVolume(index, float3(p.x - sampleSize, p.y, p.z));
-    float y = SampleSdfVolume(index, float3(p.x, p.y + sampleSize, p.z)) - SampleSdfVolume(index, float3(p.x, p.y - sampleSize, p.z));
-    float z = SampleSdfVolume(index, float3(p.x, p.y, p.z + sampleSize)) - SampleSdfVolume(index, float3(p.x, p.y, p.z - sampleSize));
-    float3 n = mul((float3x3)instanceData.transfom, float3(x, y, z));
+    
+    const float h = 1.0 / GetSdfVolumeDimensions(index).x;
+    const float2 k = float2(1.0, -1.0);
+    float3 n =
+    k.xyy * SampleSdfVolume(index, p + k.xyy * h) +
+    k.yyx * SampleSdfVolume(index, p + k.yyx * h) +
+    k.yxy * SampleSdfVolume(index, p + k.yxy * h) +
+    k.xxx * SampleSdfVolume(index, p + k.xxx * h);
+    n = mul((float3x3)instanceData.transfom, n / instanceData.scale);
     return normalize(n);
 }
 
-float3 Shading(float3 color, float3 normal) {
-    float nl = max(0, dot(normal, _Light));
-    return color * nl;
+float3 Shading(float3 color, float3 lightColor, float3 n, float3 l, float3 v) {
+    float3 h = normalize(l + v);
+    float nl = max(0, dot(n, l));
+    float nh = max(0, dot(n, h));
+    return color * lightColor * nl + lightColor * pow(nh, 128);
 }
 
 // Kernels
@@ -183,6 +194,7 @@ in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices fo
     float3 origin = _CameraPosition + direction * _CameraParams.x;
     
     float3 color = 0.0;
+    float3 position = 0.0;
     float3 normal = 0.0;
     float max_t = RayGroundIntersect(origin, direction, _GroundLevel);
     if (max_t < 0.0) {
@@ -190,7 +202,7 @@ in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices fo
         max_t = _CameraParams.y - _CameraParams.x;
     }
     else {
-        color = float3(1.0, 1.0, 1.0); // ground
+        color = _GroundColor; // ground
         normal = float3(0.0, 1.0, 0.0);
     }
 
@@ -201,10 +213,10 @@ in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices fo
             break;
         }
 
-        float3 position = origin + direction * t;
+        position = origin + direction * t;
         float distance = SampleDistanceScene(position, /*out*/ instanceIndex);
         if (distance < RAY_MARCHING_PRECISION && distance > -RAY_MARCHING_PRECISION) {
-            color = float3(1.0, 1.0, 1.0);
+            color = _InstanceData[instanceIndex].color.rgb;
             normal = SampleNormal(instanceIndex, position);
             break;
         }
@@ -213,7 +225,7 @@ in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices fo
         }
     }
 
-#ifdef DEBUG_DISTANCE
+#if defined DEBUG_DISTANCE
     if (t > max_t && normal.y > 0.0) {
         float distance = SampleDistanceScene(origin + direction * max_t, instanceIndex);
         color = frac(distance * 10.0);
@@ -223,7 +235,49 @@ in uint3 groupThreadID    : SV_GroupThreadID // uint3 GroupThreadId = indices fo
         color = normal * 0.5 + 0.5;
     }
 #else
-    color = Shading(color, normal);
+    if (t > max_t) {
+        if(normal.y > 0.0) {
+            position = origin + direction * max_t;
+        }
+        else {
+            _Result[dispatchThreadID.xy] = float4(color.rgb, 1.0f);
+            return;
+        }
+    }
+
+    float3 lightColor = _LightColor;
+    float3 view = normalize(_CameraPosition - position);
+    origin = position;
+    direction = lerp(_LightPosition.xyz, _LightPosition.xyz - position, _LightPosition.w); // light direction
+    if (_LightPosition.w > 0.5) {
+        // point light's attenuation
+        float len = length(direction);
+        lightColor *= rcp(1.0 + 0.045 * len + 0.0075 * len * len);
+        direction /= len;
+    }
+    
+    max_t = _CameraParams.y - _CameraParams.x;
+    t = RAY_MARCHING_PRECISION * 20.0;
+    float shadow = 1.0;
+    for (i = 0; i < MAX_STEP; ++i) {
+        if (t > max_t) {
+            break;
+        }
+
+        position = origin + direction * t;
+        float distance = SampleDistanceScene(position, /*out*/ instanceIndex);
+        if (distance < RAY_MARCHING_PRECISION && distance > -RAY_MARCHING_PRECISION) {
+            shadow = 0.0;
+            break;
+        }
+        else {
+            const float k = 32.0;
+            shadow = min(shadow, k * distance / t );
+            t += distance;
+        }
+    }
+
+    color = color * (Shading(color, lightColor, normal, direction, view) * shadow + _AmbientColor);
 #endif
 
     _Result[dispatchThreadID.xy] = float4(color.rgb, 1.0f);

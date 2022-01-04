@@ -45,3 +45,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sdfTexture: {fileID: 11700000, guid: 1b72a07b37335f84bbfdd145904c3058, type: 2}
   volumeSize: {x: 0.438, y: 0.854, z: 1.142}
+  color: {r: 0.8773585, g: 0.25244746, b: 0.25244746, a: 0}
