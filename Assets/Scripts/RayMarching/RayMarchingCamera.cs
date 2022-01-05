@@ -47,7 +47,7 @@ public class RayMarchingCamera : MonoBehaviour {
     ComputeBuffer instanceDataBuffer;
 
     [Header ("Resources")]
-    [SerializeField] ComputeShader renderingCS;
+    [SerializeField, HideInInspector] ComputeShader renderingCS;
 
     void OnRenderImage (RenderTexture src, RenderTexture dest) {
         var descriptor = src.descriptor;

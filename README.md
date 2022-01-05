@@ -1,10 +1,14 @@
 ### Features
 SDF Baker
-* Bake single mesh info to a Texture3D asset.
+* Bake a single mesh info to a Texture3D asset.
 * Has supported 2 methods: `CPUBruteForce` and `GPUBruteForce`.
 * Method `GPUJumpFloodingAlgorithm` is in research.
 
 Ray Marching
+* Use simple Blinn-Phong lighting.
+* Support 1 directional / point light, with soft shadow.
+* Support up to 64 instances, 8 different sdf volume.
+* Support transform of instances, include scaling.
 * Not support hierarchy tranform of volumes.
 
 ### References 
