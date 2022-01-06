@@ -1,6 +1,6 @@
 ## SDF Baker and Ray Marching
-![sdf_baker](https://github.com/douduck08/Unity-RayMarching/tree/master/images/sdf_baker.jpg)
-![sdf_rendering](https://github.com/douduck08/Unity-RayMarching/tree/master/images/sdf_rendering.jpg)
+![sdf_baker](https://raw.githubusercontent.com/douduck08/Unity-RayMarching/master/images/sdf_baker.jpg)
+![sdf_rendering](https://raw.githubusercontent.com/douduck08/Unity-RayMarching/master/images/sdf_rendering.jpg)
 
 ### Features
 SDF Baker
